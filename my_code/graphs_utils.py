@@ -6,7 +6,9 @@ import pandas as pd
 def plot_nse_cdf(metric_csv, path):
     metric_df = pd.read_csv(metric_csv)
     nse_vec = metric_df['NSE'].to_numpy()
-    plot_ecdf(nse_vec, path)
+    df_final = metric_df.set_index("basin")
+    median = df_final['NSE'].median()
+    plot_ecdf(nse_vec, path, median)
 
 
 def ecdf(vec):
@@ -15,7 +17,7 @@ def ecdf(vec):
     return x, cusum / cusum[-1]
 
 
-def plot_ecdf(vec, path,param='',value=0):
+def plot_ecdf(vec, path, median, param='', value=0):
     x, y = ecdf(vec[vec > 0])
     x = np.insert(x, 0, x[0])
     y = np.insert(y, 0, 0.)
@@ -23,7 +25,7 @@ def plot_ecdf(vec, path,param='',value=0):
     plt.plot(x, y)
     plt.grid(True)
     param_str = f'{param}={value}' if param else ''
-    plt.title(f'NSE CDF \n({np.round(100 * len(vec[vec < 0]) / len(vec),1)}% of NSEs < 0)\n{param_str}')
+    plt.title(f'NSE CDF \n({np.round(100 * len(vec[vec < 0]) / len(vec),1)}% of NSEs < 0)\nMedian NSE: {median:.3f}')
     plt.xlabel('NSE')
     plt.ylabel('CDF')
     fig.savefig(path)
