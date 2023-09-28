@@ -484,6 +484,14 @@ class Config(object):
         return self._cfg.get("log_tensorboard", True)
 
     @property
+    def bidirectional(self) -> bool:
+        return self._cfg.get("bidirectional", False)
+
+    @property
+    def num_layers(self) -> int:
+        return self._cfg.get("num_layers", 1)
+
+    @property
     def loss(self) -> str:
         return self._get_value_verbose("loss")
 

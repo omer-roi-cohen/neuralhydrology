@@ -2,6 +2,7 @@ import warnings
 
 import torch.nn as nn
 
+from neuralhydrology.modelzoo.multilayerlstm import MultiLayerLSTM
 from neuralhydrology.modelzoo.arlstm import ARLSTM
 from neuralhydrology.modelzoo.cudalstm import CudaLSTM
 from neuralhydrology.modelzoo.customlstm import CustomLSTM
@@ -30,7 +31,8 @@ SINGLE_FREQ_MODELS = [
     "handoff_forecast_lstm",
     "sequential_forecast_lstm",
     "multihead_forecast_lstm",
-    "stacked_forecast_lstm"
+    "stacked_forecast_lstm",
+    "multilayerlstm"
 ]
 AUTOREGRESSIVE_MODELS = ['arlstm']
 
@@ -90,6 +92,8 @@ def get_model(cfg: Config) -> nn.Module:
         model = SequentialForecastLSTM(cfg=cfg)
     elif cfg.model.lower() == "stacked_forecast_lstm":
         model = StackedForecastLSTM(cfg=cfg)
+    elif cfg.model.lower() == "multilayerlstm":
+        model = MultiLayerLSTM(cfg=cfg)
     else:
         raise NotImplementedError(f"{cfg.model} not implemented or not linked in `get_model()`")
 
