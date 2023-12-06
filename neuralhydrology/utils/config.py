@@ -492,6 +492,22 @@ class Config(object):
         return self._cfg.get("num_layers", 1)
 
     @property
+    def input_dropout(self) -> float:
+        return self._cfg.get("input_dropout", 0.0)
+
+    @property
+    def recurrent_dropout(self) -> float:
+        return self._cfg.get("recurrent_dropout", 0.0)
+
+    @property
+    def pwhfnse_power(self) -> float:
+        return self._cfg.get("pwhfnse_power", 2.0)
+
+    @property
+    def qnse_threshold_percentile(self) -> int:
+        return self._cfg.get("qnse_threshold_percentile", 25)
+
+    @property
     def loss(self) -> str:
         return self._get_value_verbose("loss")
 

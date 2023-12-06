@@ -9,8 +9,8 @@ import os
 AREA_BIGGER_THAN = 500
 CHECK_AREA = False
 ATT_FILE_PATH = r"C:\Users\omer6\Documents\Research\Caravan\attributes\hysets\attributes_other_hysets.csv"
-BASIN_FILE_NAME = 'caravan_all_basins.txt'
-TIMESERIES_DIR_PATH = '../../../Caravan/timeseries/netcdf/'
+BASIN_FILE_NAME = 'caravan_lamah_basins.txt'
+TIMESERIES_DIR_PATH = '../../../Caravan/timeseries/netcdf/lamah'
 def create_basin_file_from_dir():
     write_file = open('../BasinFiles/'+BASIN_FILE_NAME, 'w')
     existing_basins = []
@@ -33,7 +33,6 @@ def create_basin_file_from_dir():
                                     write_file.write(file.split('.')[0]+'\n')
                 else:
                     write_file.write(basin_name + '\n')
-
     write_file.close()
 
 
@@ -57,6 +56,4 @@ def find_max_date_of_data_in_dir():
                     print(file, first_column[i])
                     break
 
-
 create_basin_file_from_dir()
-

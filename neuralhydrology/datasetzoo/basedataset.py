@@ -124,6 +124,7 @@ class BaseDataset(Dataset):
         self._attributes = {}
         self._y = {}
         self._per_basin_target_stds = {}
+        self._per_basin_target_percentiles = {}
         self._dates = {}
         self.start_and_end_dates = {}
         self.num_samples = 0
@@ -193,6 +194,8 @@ class BaseDataset(Dataset):
 
         if self._per_basin_target_stds:
             sample['per_basin_target_stds'] = self._per_basin_target_stds[basin]
+        if self._per_basin_target_percentiles:
+            sample['per_basin_target_percentiles'] = self._per_basin_target_percentiles[basin]
         if self.id_to_int:
             sample['x_one_hot'] = torch.nn.functional.one_hot(torch.tensor(self.id_to_int[basin]),
                                                               num_classes=len(self.id_to_int)).to(torch.float32)
@@ -492,7 +495,7 @@ class BaseDataset(Dataset):
         with file_path.open("wb") as fp:
             pickle.dump(xr.to_dict(), fp)
 
-    def _calculate_per_basin_std(self, xr: xarray.Dataset):
+    def _calculate_per_basin_std_and_percentile(self, xr: xarray.Dataset):
         basin_coordinates = xr["basin"].values.tolist()
         if not self._disable_pbar:
             LOGGER.info("Calculating target variable stds per basin")
@@ -503,11 +506,20 @@ class BaseDataset(Dataset):
             if np.sum(~np.isnan(obs)) > 1:
                 # calculate std for each target
                 per_basin_target_stds = torch.tensor(np.expand_dims(np.nanstd(obs, axis=1), 0), dtype=torch.float32)
+                percentile_array = []
+                for percent in range(0, 101):
+                    percentile_array.append(np.nanpercentile(obs, percent))
+                per_basin_target_percentiles = torch.tensor(percentile_array, dtype=torch.float32)
+
             else:
                 nan_basins.append(basin)
                 per_basin_target_stds = torch.full((1, obs.shape[0]), np.nan, dtype=torch.float32)
+                per_basin_target_percentiles = torch.full((100, obs.shape[0]), np.nan, dtype=torch.float32)
 
             self._per_basin_target_stds[basin] = per_basin_target_stds
+            self._per_basin_target_percentiles[basin] = (per_basin_target_percentiles - np.array(self.scaler["xarray_feature_center"][self.cfg.target_variables].to_array())) / np.array(self.scaler["xarray_feature_scale"][self.cfg.target_variables].to_array())
+
+
 
         if len(nan_basins) > 0:
             LOGGER.warning("The following basins had not enough valid target values to calculate a standard deviation: "
@@ -705,13 +717,13 @@ class BaseDataset(Dataset):
 
         xr = self._load_or_create_xarray_dataset()
 
-        if self.cfg.loss.lower() in ['nse', 'weightednse']:
-            # get the std of the discharge for each basin, which is needed for the (weighted) NSE loss.
-            self._calculate_per_basin_std(xr)
-
         if self._compute_scaler:
             # get feature-wise center and scale values for the feature normalization
             self._setup_normalization(xr)
+
+        if self.cfg.loss.lower() in ['nse', 'weightednse', 'qnse', 'pwhfnse']:
+            # get the std of the discharge for each basin, which is needed for the (weighted) NSE loss.
+            self._calculate_per_basin_std_and_percentile(xr)
 
         # performs normalization
         xr = (xr - self.scaler["xarray_feature_center"]) / self.scaler["xarray_feature_scale"]

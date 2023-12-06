@@ -214,6 +214,62 @@ class MaskedRMSELoss(BaseLoss):
         return loss
 
 
+class MaskedPWHFNSELoss(BaseLoss):
+    """Power weighted NSE loss based on percentile"""
+    def __init__(self, cfg: Config, eps: float = 0.1):
+        super(MaskedPWHFNSELoss, self).__init__(cfg,
+                                                prediction_keys=['y_hat'],
+                                                ground_truth_keys=['y'],
+                                                additional_data=['per_basin_target_stds', 'per_basin_target_percentiles'])
+        self.eps = eps
+        self.power = cfg.pwhfnse_power
+
+    def _get_loss(self, prediction: Dict[str, torch.Tensor], ground_truth: Dict[str, torch.Tensor], **kwargs):
+        mask = ~torch.isnan(ground_truth['y'])
+        y_hat = prediction['y_hat'][mask]
+        y = ground_truth['y'][mask]
+        per_basin_target_stds = kwargs['per_basin_target_stds']
+        per_basin_target_percentiles = kwargs['per_basin_target_percentiles'][0, :]
+        y_percentile = torch.searchsorted(per_basin_target_percentiles, y, side='right') - 1
+        y_percentile_powered = torch.pow(y_percentile, self.power)
+        # expand dimension 1 to predict_last_n
+        per_basin_target_stds = per_basin_target_stds.expand_as(prediction['y_hat'])[mask]
+        squared_error = (y_hat - y)**2
+        weights = 1 / (per_basin_target_stds + self.eps)**2
+        scaled_loss = weights * squared_error
+        scaled_loss_mul_percentile = scaled_loss * y_percentile_powered
+        return torch.mean(scaled_loss_mul_percentile)
+
+
+class MaskedQNSELoss(BaseLoss):
+    """Ignore all values below certain percentile"""
+    def __init__(self, cfg: Config, eps: float = 0.1):
+        super(MaskedQNSELoss, self).__init__(cfg,
+                                             prediction_keys=['y_hat'],
+                                             ground_truth_keys=['y'],
+                                             additional_data=['per_basin_target_stds', 'per_basin_target_percentiles'])
+        self.eps = eps
+        self.percentile = cfg.qnse_threshold_percentile
+
+    def _get_loss(self, prediction: Dict[str, torch.Tensor], ground_truth: Dict[str, torch.Tensor], **kwargs):
+        mask = ~torch.isnan(ground_truth['y'])
+        y_hat = prediction['y_hat'][mask]
+        y = ground_truth['y'][mask]
+        per_basin_target_stds = kwargs['per_basin_target_stds']
+        per_basin_target_percentiles = kwargs['per_basin_target_percentiles'][0, :]
+        threshold = per_basin_target_percentiles[self.percentile]
+        b = y < threshold
+        indices = b.nonzero()
+        y[indices] = threshold.float()
+        # expand dimension 1 to predict_last_n
+        per_basin_target_stds = per_basin_target_stds.expand_as(prediction['y_hat'])[mask]
+
+        squared_error = (y_hat - y)**2
+        weights = 1 / (per_basin_target_stds + self.eps)**2
+        scaled_loss = weights * squared_error
+        return torch.mean(scaled_loss)
+
+
 class MaskedNSELoss(BaseLoss):
     """Basin-averaged Nash--Sutcliffe Model Efficiency Coefficient loss.
 

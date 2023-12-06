@@ -34,9 +34,12 @@ class MultiLayerLSTM(BaseModel):
 
         self.embedding_net = InputLayer(cfg)
 
-        self.lstm = nn.LSTM(input_size=self.embedding_net.output_size, hidden_size=cfg.hidden_size, num_layers=cfg.num_layers, bidirectional=cfg.bidirectional)
+        self.dropout1 = nn.Dropout(p=cfg.input_dropout)
 
-        self.dropout = nn.Dropout(p=cfg.output_dropout)
+        self.lstm = nn.LSTM(input_size=self.embedding_net.output_size, hidden_size=cfg.hidden_size,
+                            num_layers=cfg.num_layers, bidirectional=cfg.bidirectional, dropout=cfg.recurrent_dropout)
+
+        self.dropout2 = nn.Dropout(p=cfg.output_dropout)
 
         n_in = cfg.hidden_size
         if cfg.bidirectional is True:
@@ -69,7 +72,7 @@ class MultiLayerLSTM(BaseModel):
         """
         # possibly pass dynamic and static inputs through embedding layers, then concatenate them
         x_d = self.embedding_net(data)
-        lstm_output, (h_n, c_n) = self.lstm(input=x_d)
+        lstm_output, (h_n, c_n) = self.lstm(input=self.dropout1(x_d))
 
         # reshape to [batch_size, seq, n_hiddens]
         lstm_output = lstm_output.transpose(0, 1)
@@ -77,6 +80,6 @@ class MultiLayerLSTM(BaseModel):
         c_n = c_n.transpose(0, 1)
 
         pred = {'lstm_output': lstm_output, 'h_n': h_n, 'c_n': c_n}
-        pred.update(self.head(self.dropout(lstm_output)))
+        pred.update(self.head(self.dropout2(lstm_output)))
 
         return pred

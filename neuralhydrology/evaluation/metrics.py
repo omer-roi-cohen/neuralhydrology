@@ -147,6 +147,100 @@ def rmse(obs: DataArray, sim: DataArray) -> float:
     return np.sqrt(mse(obs, sim))
 
 
+def rmse_percentile_middle5(obs: DataArray, sim: DataArray) -> float:
+    r"""Calculate root mean squared error for a percentile range
+
+    .. math:: \text{RMSE} = \sqrt{\frac{1}{T}\sum_{t=1}^T (\widehat{y}_t - y_t)^2},
+
+    where :math:`\widehat{y}` are the simulations (here, `sim`) and :math:`y` are observations
+    (here, `obs`).
+
+    Parameters
+    ----------
+    obs : DataArray
+        Observed time series.
+    sim : DataArray
+        Simulated time series.
+    lower:
+        lower percentile
+    upper:
+        upper percentile
+
+    Returns
+    -------
+    float
+        Root mean sqaured error.
+
+    """
+    lower = 0.475
+    upper = 0.525
+
+    # verify inputs
+    _validate_inputs(obs, sim)
+
+    # get time series with only valid observations
+    obs, sim = _mask_valid(obs, sim)
+
+    if len(obs) < 1:
+        return np.nan
+
+    if (lower < 0) or (lower > 1) or (upper > 1) or (upper < 0) or (lower >= upper):
+        raise ValueError("limits should be between 0 and 1")
+
+    lower_percentile = np.nanpercentile(obs, lower)
+    upper_percentile = np.nanpercentile(obs, upper)
+    indices = (obs >= lower_percentile) * (obs <= upper_percentile)
+    obs = obs[indices]
+    sim = sim[indices]
+    return np.sqrt(mse(obs, sim))
+
+
+def rmse_percentile_upper5(obs: DataArray, sim: DataArray) -> float:
+    r"""Calculate root mean squared error for a percentile range
+
+    .. math:: \text{RMSE} = \sqrt{\frac{1}{T}\sum_{t=1}^T (\widehat{y}_t - y_t)^2},
+
+    where :math:`\widehat{y}` are the simulations (here, `sim`) and :math:`y` are observations
+    (here, `obs`).
+
+    Parameters
+    ----------
+    obs : DataArray
+        Observed time series.
+    sim : DataArray
+        Simulated time series.
+    lower:
+        lower percentile
+    upper:
+        upper percentile
+
+    Returns
+    -------
+    float
+        Root mean sqaured error.
+
+    """
+    lower = 0.95
+
+    # verify inputs
+    _validate_inputs(obs, sim)
+
+    # get time series with only valid observations
+    obs, sim = _mask_valid(obs, sim)
+
+    if len(obs) < 1:
+        return np.nan
+
+    if (lower < 0) or (lower > 1):
+        raise ValueError("limits should be between 0 and 1")
+
+    lower_percentile = np.nanpercentile(obs, lower)
+    indices = (obs >= lower_percentile)
+    obs = obs[indices]
+    sim = sim[indices]
+    return np.sqrt(mse(obs, sim))
+
+
 def alpha_nse(obs: DataArray, sim: DataArray) -> float:
     r"""Calculate the alpha NSE decomposition [#]_
     
@@ -868,6 +962,10 @@ def calculate_metrics(obs: DataArray,
             values["Missed-Peaks"] = missed_peaks(obs, sim, resolution=resolution, datetime_coord=datetime_coord)
         elif metric.lower() == "peak-mape":
             values["Peak-MAPE"] = mean_absolute_percentage_peak_error(obs, sim)
+        elif metric.lower() == 'rmse-middle5':
+            values["RMSE-middle5"] = rmse_percentile_middle5(obs,sim)
+        elif metric.lower() == 'rmse-upper5':
+            values["RMSE-upper5"] = rmse_percentile_upper5(obs,sim)
         else:
             raise RuntimeError(f"Unknown metric {metric}")
 
